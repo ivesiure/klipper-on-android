@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+D=/data/data/com.termux/files/home/pdata/logs/sv-moonraker
+mkdir -p "$D"
+exec svlogd -tt "$D"

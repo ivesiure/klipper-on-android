@@ -1,0 +1,14 @@
+# The [mcu] section of printer.cfg for the bridge. Everything else in printer.cfg is
+# the printer's own configuration and is unchanged by running the host on a phone.
+
+[mcu]
+serial: /data/data/com.termux/files/home/printer
+# Fictional. The real rate (250000) is set by the bridge on the CH340; there is no UART
+# on this side of the pseudo-terminal, and pyserial refuses non-standard rates on a pty.
+baud: 115200
+
+# If printer.cfg was copied from another host, check every absolute path in it. A
+# [virtual_sdcard] pointing at a directory that does not exist here makes uploads
+# "vanish" at print time while Mainsail still lists them.
+[virtual_sdcard]
+path: /data/data/com.termux/files/home/pdata/gcodes

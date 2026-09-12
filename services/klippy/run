@@ -1,0 +1,29 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+H=/data/data/com.termux/files/home
+export HOME="$H"
+PIDF="$H/pdata/run/klippy-root.pid"
+
+# klippy runs as ROOT because the bridge's pty is created with the label
+# u:object_r:devpts:s0 (the bridge needs u:r:ksu:s0 for /dev/bus/usb), and
+# SELinux in enforcing mode does not let an untrusted_app open that pty -- not
+# with 0666, not with chown, and chcon is refused even for root.
+# umask 0: connecting to a unix socket requires WRITE permission, and a socket
+# created by root would come out 0755, blocking Moonraker.
+
+# Wait for the pty INDEFINITELY, the way the bridge waits for the CH340. It used
+# to be 60 s and then exit, which with the printer off gave ~60 restarts an hour
+# for nothing -- the pty only appears when the bridge is up, and the bridge only
+# comes up when the printer is on. Start order: bridge first, klippy second.
+i=0
+while [ ! -L "$H/printer" ]; do
+    i=$((i+1))
+    [ $((i % 60)) -eq 1 ] && echo "waiting for the bridge's pty -- check $i"
+    sleep 5
+done
+sleep 2
+
+su -c "echo \$\$ > $PIDF; umask 0; HOME=$H exec $H/klippy-env/bin/python $H/klipper/klippy/klippy.py -I $H/pdata/run/klipper.tty -a $H/pdata/run/klipper.sock -l $H/pdata/logs/klippy.log $H/pdata/config/printer.cfg" &
+child=$!
+trap "p=\$(cat $PIDF 2>/dev/null); [ -n \"\$p\" ] && su -c \"kill \$p\" 2>/dev/null; exit 0" TERM INT
+wait $child

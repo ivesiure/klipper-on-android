@@ -1,0 +1,13 @@
+--- a/moonraker/components/proc_stats.py
++++ b/moonraker/components/proc_stats.py
+@@ -302,7 +302,15 @@
+-        if os.path.isdir(HWMON_ROOT_PATH):
++        # Android: /sys/class/hwmon exists but an untrusted_app cannot open it.
++        # isdir() passes and scandir() raises PermissionError, taking Moonraker
++        # down while the component loads -- a restart loop under a supervisor.
++        # /sys/class/thermal (TEMPERATURE_PATH below) is readable; fall back to it.
++        try:
++            _hwmon_ok = os.path.isdir(HWMON_ROOT_PATH) and os.access(HWMON_ROOT_PATH, os.R_OK)
++        except OSError:
++            _hwmon_ok = False
++        if _hwmon_ok:

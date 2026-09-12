@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+export HOME=/data/data/com.termux/files/home
+exec $HOME/moonraker-env/bin/python $HOME/watchdog.py

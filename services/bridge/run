@@ -1,0 +1,35 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+H=/data/data/com.termux/files/home
+export HOME="$H"
+export LINK="$H/printer"
+# 60 s instead of the default 5 s: under a supervisor every line is log volume,
+# and ~17,000 lines a day diagnose nothing better than 1,400.
+export STATS_SECS=60
+PIDF="$H/pdata/run/bridge-root.pid"
+
+has_ch340() {
+    su -c "grep -qs 1a86 /sys/bus/usb/devices/*/idVendor" 2>/dev/null
+}
+
+# Wait for the CH340 to show up BEFORE spending a process on it.
+# Without this, with the printer switched off, the driver died looking for the
+# chip and runsv resurrected it about once a second -- measured: 122 attempts
+# in 2 min 25 s, each with a su and a Python interpreter. A night with the
+# printer off meant ~24,000 restarts and tens of MB of log, burning battery for
+# nothing. This loop costs one grep every 5 s.
+i=0
+while ! has_ch340; do
+    i=$((i+1))
+    [ $((i % 60)) -eq 1 ] && echo "waiting for the CH340 (printer off?) -- check $i"
+    sleep 5
+done
+[ "$i" -gt 0 ] && echo "CH340 appeared after $i checks"
+
+# runsv cannot stop a process started through su: the TERM goes to su, which
+# does not forward it. Record the real pid (exec makes the shell become python,
+# so $$ is already the final pid) and forward the signal by hand.
+su -c "echo \$\$ > $PIDF; HOME=$H LINK=$H/printer STATS_SECS=60 exec /data/data/com.termux/files/usr/bin/python $H/ch341_pty.py" &
+child=$!
+trap "p=\$(cat $PIDF 2>/dev/null); [ -n \"\$p\" ] && su -c \"kill \$p\" 2>/dev/null; exit 0" TERM INT
+wait $child

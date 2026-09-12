@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+export HOME=/data/data/com.termux/files/home
+H=/data/data/com.termux/files/home
+exec $H/moonraker-env/bin/python $H/serve_mainsail.py

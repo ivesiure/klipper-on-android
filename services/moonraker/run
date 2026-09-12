@@ -1,0 +1,20 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+H=/data/data/com.termux/files/home
+export HOME="$H"
+PIDF="$H/pdata/run/moonraker-root.pid"
+
+# Moonraker runs as ROOT for the same reason klippy does: klippy's API socket is
+# served from the creator's context (u:r:ksu:s0), and SELinux does not let an
+# untrusted_app connect to it -- not even with the socket at 0777. Everyone who
+# talks to klippy has to be in the same context.
+i=0
+while [ ! -S "$H/pdata/run/klipper.sock" ]; do
+    i=$((i+1)); [ $i -gt 90 ] && echo "klippy socket did not appear in 90 s" && exit 1
+    sleep 1
+done
+cd $H/moonraker
+su -c "echo \$\$ > $PIDF; umask 0; HOME=$H exec $H/moonraker-env/bin/python -m moonraker -d $H/pdata" &
+child=$!
+trap "p=\$(cat $PIDF 2>/dev/null); [ -n \"\$p\" ] && su -c \"kill \$p\" 2>/dev/null; exit 0" TERM INT
+wait $child

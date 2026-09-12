@@ -1,0 +1,33 @@
+diff --git a/klippy/chelper/__init__.py b/klippy/chelper/__init__.py
+index a98682f5..09a396fa 100644
+--- a/klippy/chelper/__init__.py
++++ b/klippy/chelper/__init__.py
+@@ -12,7 +12,7 @@ import cffi
+ ######################################################################
+ 
+ GCC_CMD = "gcc"
+-COMPILE_ARGS = ("-Wall -g -O2 -shared -fPIC"
++COMPILE_ARGS = ("-Wall -g -O2 -shared -fPIC -lm"
+                 " -flto -fwhole-program -fno-use-linker-plugin"
+                 " -o %s %s")
+ SSE_FLAGS = "-mfpmath=sse -msse2"
+diff --git a/klippy/extras/statistics.py b/klippy/extras/statistics.py
+index ad694c83..7ea99b5a 100644
+--- a/klippy/extras/statistics.py
++++ b/klippy/extras/statistics.py
+@@ -28,7 +28,14 @@ class PrinterSysStats:
+         self.last_process_time = ptime
+         if pdiff > 0.:
+             self.total_process_time += pdiff
+-        self.last_load_avg = os.getloadavg()[0]
++        try:
++            self.last_load_avg = os.getloadavg()[0]
++        except AttributeError:
++            # Android/Bionic has no os.getloadavg(); /proc/loadavg exists.
++            try:
++                self.last_load_avg = float(open("/proc/loadavg").read().split()[0])
++            except Exception:
++                self.last_load_avg = 0.
+         msg = "sysload=%.2f cputime=%.3f" % (self.last_load_avg,
+                                              self.total_process_time)
+         # Get available system memory
