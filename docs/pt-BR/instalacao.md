@@ -101,10 +101,14 @@ Na seção `[mcu]` do `printer.cfg`:
 [mcu]
 serial: /data/data/com.termux/files/home/printer
 baud: 115200
+restart_method: command
 ```
 
 O `baud` é **fictício** — a taxa real (250000) é definida pela ponte, no chip. O pyserial
 recusa taxas fora do padrão num pty, e não há UART daquele lado de qualquer forma.
+
+O `restart_method: command` é **obrigatório**: o reset padrão alterna o DTR, que um pty não
+tem (ver armadilhas).
 
 Se o `printer.cfg` veio de outro host, procure nele caminhos absolutos: um `[virtual_sdcard]`
 apontando para um diretório que não existe aqui faz todo upload "sumir" na hora de imprimir

@@ -93,6 +93,37 @@ Do not fight pyserial: there is no UART on that side of the pseudo-terminal. The
 set by the driver, on the CH340. Put `baud: 115200` in `[mcu]` and move on — nothing changes on
 the wire.
 
+### The pty has no DTR either — `restart_method: command` is mandatory
+
+Klipper's default way of resetting a serial MCU (`_restart_arduino`) opens the port and toggles
+DTR. A pty has no modem lines: `TIOCMBIS` fails with `ENOTTY` (measured with pyserial 3.4 and
+3.5 — `ser.dtr = True` raises `OSError(25, 'Inappropriate ioctl for device')`). The exception
+escapes `klippy`'s post-run handler, the MCU is never reset, and the next start finds it still
+configured:
+
+```
+Failed automated reset of MCU 'mcu'
+```
+
+That message does **not** mean the board is stuck — it means it is alive, configured and
+*not* in shutdown, when the host expected a fresh one. Power-cycling it will not help.
+
+The fix is one line in `[mcu]`:
+
+```ini
+restart_method: command
+```
+
+The reset now travels over the link like any other message (`Attempting MCU 'mcu' reset
+command` in the log). Note the consequence: if the host's send queue is wedged — as it was in
+the 2026-09-14 incident, when a bug in the display module's `TJC3224.py` (class-level
+`data_frame` list, growing 5 bytes per FIRMWARE_RESTART in the same process) queued a message
+too large for a Klipper block and `serialqueue` spent the link on empty 5-byte blocks — the
+`reset` sits behind the wedged message and you get the same "Failed automated reset". The
+difference is in `Stats`: `send_seq` climbing ~2 000/s with ~5 bytes per message, and
+`ready_bytes` creeping up by one per second (the `get_clock` queries that never leave). The
+bridge's `tx` counter matches `bytes_write` exactly; it is a faithful witness, not the cause.
+
 ### `klippy`'s `-I` defaults to `/tmp/printer`, and `/tmp` does not exist in Termux
 
 Termux's temporary directory is `$PREFIX/tmp`. Pass `-I`, `-a` and `-l` explicitly.

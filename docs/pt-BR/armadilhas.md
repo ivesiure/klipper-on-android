@@ -92,6 +92,37 @@ O pyserial tenta configurar 250000 baud no pty, e 250000 não é taxa POSIX padr
 com o pyserial: não existe UART daquele lado do pseudo-terminal. A taxa real é definida pelo
 driver, no CH340. Ponha `baud: 115200` no `[mcu]` e siga — nada muda no fio.
 
+### O pty também não tem DTR — `restart_method: command` é obrigatório
+
+O jeito padrão do Klipper resetar um MCU serial (`_restart_arduino`) abre a porta e alterna o
+DTR. Um pty não tem linhas de modem: o `TIOCMBIS` falha com `ENOTTY` (medido com pyserial 3.4
+e 3.5 — `ser.dtr = True` levanta `OSError(25, 'Inappropriate ioctl for device')`). A exceção
+escapa do tratador pós-execução do `klippy`, o MCU nunca é resetado, e a partida seguinte o
+encontra ainda configurado:
+
+```
+Failed automated reset of MCU 'mcu'
+```
+
+Essa mensagem **não** quer dizer placa presa — quer dizer que ela está viva, configurada e
+*fora* de shutdown, quando o host esperava uma recém-resetada. Ciclo de energia não ajuda.
+
+O conserto é uma linha no `[mcu]`:
+
+```ini
+restart_method: command
+```
+
+O reset passa a viajar pelo link como qualquer outra mensagem (`Attempting MCU 'mcu' reset
+command` no log). Repare na consequência: se a fila de envio do host estiver travada — como
+no incidente de 2026-09-14, quando um bug no `TJC3224.py` do módulo da tela (lista
+`data_frame` no nível da classe, crescendo 5 bytes a cada FIRMWARE_RESTART no mesmo processo)
+enfileirou uma mensagem grande demais para um bloco do Klipper e o `serialqueue` gastou o link
+em blocos vazios de 5 bytes — o `reset` fica atrás da mensagem travada e aparece o mesmo
+"Failed automated reset". A diferença está no `Stats`: `send_seq` subindo ~2 000/s com ~5
+bytes por mensagem, e `ready_bytes` crescendo um por segundo (os `get_clock` que nunca saem).
+O contador `tx` da ponte bate exatamente com `bytes_write`; ela é testemunha fiel, não a causa.
+
 ### O `-I` do `klippy` tem padrão `/tmp/printer`, e `/tmp` não existe no Termux
 
 O diretório temporário do Termux é `$PREFIX/tmp`. Passe `-I`, `-a` e `-l` explícitos.

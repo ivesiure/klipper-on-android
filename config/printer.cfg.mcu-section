@@ -6,6 +6,11 @@ serial: /data/data/com.termux/files/home/printer
 # Fictional. The real rate (250000) is set by the bridge on the CH340; there is no UART
 # on this side of the pseudo-terminal, and pyserial refuses non-standard rates on a pty.
 baud: 115200
+# Mandatory on a pty. Without it Klipper resets the MCU by toggling DTR (arduino_reset),
+# and a pty has no modem lines: the ioctl fails with ENOTTY, the MCU is never reset and
+# every FIRMWARE_RESTART ends in "Failed automated reset of MCU". With "command" the
+# reset travels over the link like any other message.
+restart_method: command
 
 # If printer.cfg was copied from another host, check every absolute path in it. A
 # [virtual_sdcard] pointing at a directory that does not exist here makes uploads
